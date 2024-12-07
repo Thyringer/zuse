@@ -1,4 +1,6 @@
-<img src="assets/Kalkyl.svg" alt="Logo Kalkyl programming language" width="800">
+<p style="text-align: center;">
+    <img src="assets/Kalkyl.svg" alt="Logo Kalkyl programming language" width="600">
+</p>
 
 # Zuse
 
