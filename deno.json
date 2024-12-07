@@ -4,7 +4,7 @@
 		"strict": true
 	},
 	"tasks": {
-		"dev": "deno run --watch ./cli-compiler/main.ts"
+		"dev": "deno run --watch ./compiler/Main.ts"
 	},
 	"imports": {
 		"@std/assert": "jsr:@std/assert@1",

@@ -1,4 +1,5 @@
 
+//
 
 export function require(condition: unknown, message: string): asserts condition {
 	if (!condition) {

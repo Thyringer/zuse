@@ -1,5 +1,5 @@
 
-
+//
 
 export function bold(_: any): string {
 	return `\x1b[1m${_}\x1b[0m`;

@@ -1,6 +1,6 @@
 # Zuse
 
-Standard compiler for the functional programming language Kalkyl.
+Compiler for the functional programming language Kalkyl.
 
 In the long term, Zuse is to combine the following components:
 
@@ -13,7 +13,7 @@ In the long term, Zuse is to combine the following components:
 Install Deno on your system and build the executable from the root directory of the project with the following command:
 
 ```bash
-deno compile --output ./builds/zuse ./compiler/main.ts
+deno compile --output ./builds/zuse ./compiler/Main.ts
 ```
 
 ## Kalkyl Briefly
