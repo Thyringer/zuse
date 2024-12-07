@@ -141,7 +141,7 @@ b = MailingAddress "Max-Mustermann-Ring 12b" -country DE -zipcode "0123" -city "
 
 If arguments are specified by name, the order does not matter.
 
-The data constructor returns a tuple whose elements can then be accessed after construction. In addition, Kalkyl is also extremely flexible when it comes to applying functions; all arguments can be used individually (curried), as a whole in the form of a tuple, or mixed between both variants:
+The data constructor returns a tuple whose elements can then be accessed after construction. In addition, Kalkyl is also extremely flexible when it comes to applying functions; all arguments can be passed individually (curried), as a whole in the form of a tuple, or mixed between both variants:
 
 ```nim
 i = ("123 Main St", "Springfield", "12345")
