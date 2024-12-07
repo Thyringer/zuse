@@ -4,7 +4,7 @@
 
 # Zuse Compiler for Kalkyl
 
-Zuse ist the Compiler for the functional programming language Kalkyl.
+Zuse is the reference compiler for the functional programming language Kalkyl.
 
 In the long term, Zuse is to combine the following components:
 
