@@ -1,3 +1,5 @@
+<img src="assets/Kalkyl.svg" alt="Logo Kalkyl programming language" width="800">
+
 # Zuse
 
 Compiler for the functional programming language Kalkyl.
@@ -165,7 +167,7 @@ The slash `/` simply separates an alternative shorter name, which is preferred a
 
 Lowercase names that begin with a hyphen will be treated as "labels" that can be used to name types and values, as already shown in the previous examples. The hyphen was chosen to avoid an inflated use of `:` or `=` and to enable neat syntax, which is a bit reminiscent of CLI program parameters.
 
-This of course has the consequence that spaces are ALWAYS required between the binary operators `+` and `-`, which, however, can hardly be seen as a disadvantage, but rather as imposed proper code style. The only real disadvantage is the impossibility of using the minus sign as a unary prefix operator, but let's be honest: how often do you need that? Here, a negation function can serve the same purpose, or the following idiom: `-1*x`, which is possible since `*` and `/` are among the few punctuation characters that do not necessarily require whitespace for their operands (or to other lexemes in general).
+This of course has the consequence that spaces are ALWAYS required between the binary operators `+` and `-`, which, however, can hardly be seen as a disadvantage, but rather as imposed proper code style. The only real disadvantage is the impossibility of using the minus sign as a unary prefix operator, but let's be honest: how often do you need that? Here, a negation function can serve the same purpose, or the following idiom: `-1*x`, which is possible since `*` and `/` are among the few punctuation characters that do not necessarily require whitespace for their operands.
 
 
 ### Modularity despite Ad hoc Polymorphism
@@ -183,7 +185,7 @@ preinstall module Displayable Bool has
 
 Implementations of a concept can be globally unique and coherent, as in Haskell, which is called "pre-installing" in Kalkyl, enabling the compiler to automatically find the appropriate instance.
 
-As long as no concrete implementation is required, concepts appear as constraints that impose conditions on types to guarantee that a generic function works for their values:
+As long as no concrete implementation is required, concepts appear as constraints that impose conditions on type variables to guarantee that a generic function works for their values:
 
 ```nim
 display : a -> String where Displayable a
