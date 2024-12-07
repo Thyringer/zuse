@@ -2,9 +2,9 @@
     <img src="assets/Kalkyl.svg" alt="Logo Kalkyl programming language" width="600">
 </div>
 
-# Zuse
+# Zuse Compiler for Kalkyl
 
-Compiler for the functional programming language Kalkyl.
+Zuse ist the Compiler for the functional programming language Kalkyl.
 
 In the long term, Zuse is to combine the following components:
 
