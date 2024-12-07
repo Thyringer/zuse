@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"lib": ["ESNext", "dom", "deno.ns"],
+		"strict": true
+	},
+	"tasks": {
+		"dev": "deno run --watch ./cli-compiler/main.ts"
+	},
+	"imports": {
+		"@std/assert": "jsr:@std/assert@1",
+		"xxh32": "https://unpkg.com/xxh32@2.0.4/dist/index.bundle.js"
+	}
+}
