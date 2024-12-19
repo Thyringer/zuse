@@ -1,38 +1,41 @@
 
 import { substitute } from "./General.ts";
 
-import { ANSIColor, bold, color } from "./TUI.ts";
-
-import { Line } from "./Lexer/Line.ts";
-
 
 //
 
 export enum Phase {
 	Warning = 0,
 	Building = 1,
-	Parsing,
-	Resolving,
-	Analyzing,
-	Running
+	Parsing = 2,
+	Resolving = 3,
+	Analyzing = 4,
+	Running = 5
 }
 
 
-export type PhaseData = { abbr: string, name: string }
+const PhaseData: { [key in Phase]: [abbr: string, name: string] } = Object.freeze({
+	[Phase.Warning]: ["W", "Warning"],
+	[Phase.Building]: ["B", "Build Error"],
+	[Phase.Parsing]: ["S", "Syntax Error"],
+	[Phase.Resolving]: ["N", "Name Resolution Error"],
+	[Phase.Analyzing]: ["A", "Static Analysis Error"],
+	[Phase.Running]: ["R", "Runtime Error"]
+});
 
-export const PhaseData: { [key in Phase]: PhaseData } = {
-	[Phase.Warning]: { abbr: "W", name: "Warning" },
-	[Phase.Building]: { abbr: "B", name: "Build Error" },
-	[Phase.Parsing]: { abbr: "S", name: "Syntax Error" },
-	[Phase.Resolving]: { abbr: "N", name: "Name Resolution Error" },
-	[Phase.Analyzing]: { abbr: "A", name: "Static Analysis Error" },
-	[Phase.Running]: { abbr: "R", name: "Runtime Error" }
-};
+export function getPhaseAbbr(phase: Phase) {
+	return PhaseData[phase][0]
+}
+
+export function getPhaseName(phase: Phase) {
+	return PhaseData[phase][1]
+}
 
 
 //
 
-class CompileError {
+export class ProjectError {
+
 	readonly number;
 	readonly ids;
 
@@ -65,25 +68,24 @@ class CompileError {
 
 	/** Error code as it should be displayed to programmers. */
 	get code(): string {
-		return `${PhaseData[this.phase].abbr}.${this.issue}`;
-	}
-
-
-	display(max_width: number = 80): string {
-		const error = color.Error(`${PhaseData[this.phase].name} ${this.code}`);
-
-		let lines: string[] = [
-			`> ${error}`,
-			`  ${this.message}`,
-		]
-
-		return lines.join("\n") + "\n";
+		return `${getPhaseAbbr(this.phase)}.${this.issue}`;
 	}
 
 }
 
 
-export class CodeError extends CompileError {
+//
+
+export class ErrorLocation {
+	constructor(
+		public readonly line_nr: number,
+		public readonly column_from: number,
+		public readonly column_to: number
+	) {}
+}
+
+
+export class CompileError extends ProjectError {
 
 	/**
 	 * Bundles all data required for a meaningful error message and checks whether the specified error code even exists.
@@ -97,113 +99,12 @@ export class CodeError extends CompileError {
 	constructor(
 		phase: Phase,
 		issue: number,
-		public readonly component: string,
-		public readonly line: Line,
-		public readonly column_from: number,
-		public readonly column_to: number,
+		public readonly locations: Array<ErrorLocation> = [],
 		...ids: Array<string>
 	) {
 		super(phase, issue, ...ids);
 	}
-
-
-	get location(): string {
-		return `${this.line.nr}:L${this.line.level}+${this.column_from}:${this.column_to}`
-	}
-
-
-	override display(max_width: number = 65): string {
-		const error = color.Error(`${PhaseData[this.phase].name} ${this.code}`);
-		const line = String(this.line.nr).padStart(4);
-		const indent = color("→  ", ANSIColor.BrightBlack).repeat(this.line.level);
-		const stress = color.Error("^").repeat(this.column_to - this.column_from);
-
-		const code = this.line.code.replace(/\t/g, " ");
-			// Without this replacement, tabs are displayed wider and thus distort the error hint.
-
-		const stress_padding = " ".repeat(this.column_from);
-
-		let lines: string[] = [
-			`> ${error} in ${bold(this.component)}:${this.location}`,
-			`       ┌╌`,
-			`  ${line} ╎  ${indent}${code}`,
-			`       └╌ ${" ".repeat(this.line.level * 3)}${stress_padding}${stress}`,
-			`  ${this.message}`,
-		]
-
-		return lines.join("\n") + "\n";
-	}
 }
-
-
-export class CompileErrors extends Array<CompileError | CodeError> {
-
-	constructor(private readonly component: string, ...items: CodeError[]) {
-		super(...items);
-	}
-
-
-	pushWarning(
-		issue: number, line: Line, column_from: number, column_to: number
-	) {
-		this.push(new CodeError(
-			Phase.Warning, issue, this.component, line, column_from, column_to));
-		return this;
-	}
-
-
-	pushBuildError(issue: number, ...ids: string[]) {
-		this.push(new CompileError(Phase.Building, issue, ...ids));
-		return this;
-	}
-
-
-	pushSyntaxError(
-		issue: number,
-		line: Line,
-		column_from: number,
-		column_to: number | null = null,
-		...ids: string[]
-	) {
-		this.push(new CodeError(
-			Phase.Parsing,
-			issue,
-			this.component,
-			line,
-			column_from,
-			column_to === null ? column_from + 1 : column_to,
-			...ids
-		));
-		return this;
-	}
-
-
-	pushNameResolutionError(
-		issue: number, line: Line, column_from: number, column_to: number
-	) {
-		this.push(new CodeError(
-			Phase.Resolving, issue, this.component, line, column_from, column_to));
-		return this;
-	}
-
-
-	pushStaticAnalysisError(
-		issue: number, line: Line, column_from: number, column_to: number
-	) {
-		this.push(new CodeError(
-			Phase.Analyzing, issue,this.component, line, column_from, column_to));
-		return this;
-	}
-
-
-	pushRuntimeError(
-		issue: number, line: Line, column_from: number, column_to: number
-	) {
-		this.push(new CodeError(
-			Phase.Running, issue, this.component, line, column_from, column_to));
-		return this;
-	}
-} 
 
 
 //
@@ -242,9 +143,17 @@ const CompileErrorMessages: Record<number, string> = {
 	215: "illegal character within a number literal",
 	216: "illegal character within a binary literal",
 	217: "illegal character within a hexadecimal literal",
-	218: "unknown punctuation",
-	219: "unknown string prefix",
-	220: "missing demarcation from string literal"
+	218: "invalid number literal",
+	219: "invalid number literal: missing integer part before fraction part",
+	220: "invalid number literal: missing decimal point before repetend",
+	221: "invalid number literal: uncompleted repetend",
+	222: "invalid string literal",
+	223: "missing demarcation",
+	224: "missing demarcation between literals",
+	225: "missing demarcation from number literal",
+	226: "missing demarcation from string literal",
+	227: "unknown string prefix",
+	228: "unknown punctuation",
 	
 	// SYNTAX ERRORS / PARSING
 

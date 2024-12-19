@@ -1,45 +1,7 @@
 
 //
 
-export function bold(_: any): string {
-	return `\x1b[1m${_}\x1b[0m`;
-}
-
-
-export function color(
-	text: string,
-	before: ANSIColor = ANSIColor.Reset,
-	after: ANSIColor = ANSIColor.Reset
-): string {
-	return `\x1b[${before}m${text}\x1b[${after}m`; // Reset with \x1b[0m
-}
-
-
-// SEMANTIC COLORINGS
-
-color.Comment = function(_: any): string {
-	return `\x1b[${ANSIColor.BrightBlack}m${_}\x1b[0m\x1b[0m`;
-}
-
-
-color.Error = function(_: any): string {
-	return `\x1b[${ANSIColor.BrightRed}m${_}\x1b[0m\x1b[0m`;
-}
-
-
-color.ReservedSymbol = function(_: any): string {
-	return `\x1b[${ANSIColor.BrightBlue}m${_}\x1b[0m\x1b[0m`;
-}
-
-
-color.String = function(_: any): string {
-	return `\x1b[${ANSIColor.Green}m${JSON.stringify(String(_))}\x1b[0m`;
-}
-
-
-//
-
-export enum ANSIColor {
+enum ANSIColor {
 	Reset = 0,
 	// TEXT COLORS (foreground)
 	Black = 30,
@@ -72,14 +34,69 @@ export enum ANSIColor {
 }
 
 
+/** Central definition of the color scheme for a uniform style in all CLI outputs. */
+export enum Style {
+	Reset = 0,
+	Comment = ANSIColor.BrightBlack,
+	Error = ANSIColor.BrightRed,
+	ReservedSymbol = ANSIColor.BrightBlue,
+	Namespace = ANSIColor.Cyan,
+	String = ANSIColor.Green
+} 
+
+
+//
+
+export function bold(_: any): string {
+	return `\x1b[1m${_}\x1b[0m`;
+}
+
+
+export function color(
+	text: string,
+	color_before: Style = Style.Reset,
+	color_after: Style = Style.Reset
+): string {
+	return `\x1b[${color_before}m${text}\x1b[${color_after}m`; // Reset with \x1b[0m
+}
+
+
+// SEMANTIC COLORINGS
+
+color.comment = function(_: any): string {
+	return `\x1b[${Style.Comment}m${_}\x1b[0m\x1b[0m`;
+}
+
+
+color.error = function(_: any): string {
+	return `\x1b[${Style.Error}m${bold(_)}\x1b[0m\x1b[0m`;
+}
+
+
+color.reserved_symbol = function(_: any): string {
+	return `\x1b[${Style.ReservedSymbol}m${_}\x1b[0m\x1b[0m`;
+}
+
+
+color.namespace = function(_: any): string {
+	return `\x1b[${Style.Namespace}m${_}\x1b[0m\x1b[0m`;
+}
+
+
+/** Object is converted into a displayable string (with quotation marks + escapes) and colored. */
+color.string = function(_: any, color: Style = Style.String): string {
+	return `\x1b[${color}m${JSON.stringify(String(_))}\x1b[0m`;
+}
+
+
 //
 
 export function wrapText(
 	text: string,
 	max_width: number,
 	insert: string = "",
-	color_before: ANSIColor = ANSIColor.Reset,
-	color_after: ANSIColor = ANSIColor.Reset
+	color_before: Style = Style.Reset,
+	color_after: Style = Style.Reset
 ): string {
 	const words = text.split(" ");
 	const result: string[] = [];

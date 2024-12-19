@@ -36,8 +36,7 @@ const DefaultColorScheme = new ColorScheme(
 //
 
 export enum CompilationState {
-	Preparing,
-	Prelexed,
+	Linearized,
 	Lexed,
 	Parsed,
 	Resolved,

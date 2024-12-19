@@ -1,29 +1,31 @@
 
-import { LexicalCategory, Separators, Token, Tokens } from "./Token.ts";
+import { LexicalCategory, Demarcators, Token, Tokens } from "./Token.ts";
 
 
 //
 
 enum Prelexing {
-	None,
+	Nothing,
 	Anything,
 	Whitespace,
-	Clinging,
+	Demarcating,
 	SingleQuoteString,
 	DoubleQuoteString
 }
 
 
 /** Breaks down a line of code into its lexemes without performing any lexical analysis, identifying whitespace, reserved symbols, strings and documentation. Words and number literals remain uncategorized (→ undefined). */
-export function pretokenizeLine(code_line: string): Tokens {
+export function tokenizeLine(code_line: string): Tokens {
 	const length = code_line.length;
 	let start = 0;
 	let index = 0;
+	let category: LexicalCategory | undefined;
 	const tokens: Tokens = [];
 	
 
 	function push(
-		type: LexicalCategory | undefined = undefined, lexeme: null | undefined = undefined
+		type: LexicalCategory | undefined = undefined,
+		lexeme: null | undefined = undefined
 	) {
 		const end = index + 1 > length ? index : index + 1;
 		tokens.push(new Token(
@@ -37,7 +39,8 @@ export function pretokenizeLine(code_line: string): Tokens {
 
 
 	function pushAfterwards(
-		type: LexicalCategory | undefined = undefined, lexeme: null | undefined = undefined
+		type: LexicalCategory | undefined = undefined,
+		lexeme: null | undefined = undefined
 	) {
 		tokens.push(new Token(
 			type,
@@ -59,7 +62,7 @@ export function pretokenizeLine(code_line: string): Tokens {
 	};
 
 
-	let context = Prelexing.None;
+	let context = Prelexing.Nothing;
 	let char: string;
 	let prev_char: string | undefined;
 
@@ -68,7 +71,7 @@ export function pretokenizeLine(code_line: string): Tokens {
 		prev_char = code_line[index - 1];
 
 		switch (context) {
-			case Prelexing.None:
+			case Prelexing.Nothing:
 				if (char === ' ') {
 					context = Prelexing.Whitespace;
 				} else if (char === '\'') {
@@ -78,11 +81,11 @@ export function pretokenizeLine(code_line: string): Tokens {
 				} else if (char === '#') {
 					pushComment();
 					return tokens;
-				} else if (char in Separators) {
-					if (Separators[char]) {
+				} else if (char in Demarcators) {
+					if (Demarcators[char]) {
 						push();
 					} else {
-						context = Prelexing.Clinging;
+						context = Prelexing.Demarcating;
 					}
 				} else {
 					context = Prelexing.Anything;
@@ -103,13 +106,13 @@ export function pretokenizeLine(code_line: string): Tokens {
 					pushAfterwards();
 					pushComment();
 					return tokens;
-				} else if (char in Separators) {
+				} else if (char in Demarcators) {
 					pushAfterwards();
-					if (Separators[char]) {
+					if (Demarcators[char]) {
 						push();
-						context = Prelexing.None;
+						context = Prelexing.Nothing;
 					} else {
-						context = Prelexing.Clinging;
+						context = Prelexing.Demarcating;
 					}
 				}
 				break;
@@ -125,13 +128,13 @@ export function pretokenizeLine(code_line: string): Tokens {
 					pushAfterwards(LexicalCategory.Whitespace, null);
 					pushComment();
 					return tokens;
-				} else if (char in Separators) {
+				} else if (char in Demarcators) {
 					pushAfterwards(LexicalCategory.Whitespace, null);
-					if (Separators[char]) {
+					if (Demarcators[char]) {
 						push();
-						context = Prelexing.None;
+						context = Prelexing.Nothing;
 					} else {
-						context = Prelexing.Clinging;
+						context = Prelexing.Demarcating;
 					}
 				} else if (char !== ' ') {
 					pushAfterwards(LexicalCategory.Whitespace, null);
@@ -139,7 +142,7 @@ export function pretokenizeLine(code_line: string): Tokens {
 				}
 				break;
 
-			case Prelexing.Clinging:
+			case Prelexing.Demarcating:
 				if (char === ' ') {
 					pushAfterwards();
 					context = Prelexing.Whitespace;
@@ -150,9 +153,9 @@ export function pretokenizeLine(code_line: string): Tokens {
 				} else if (char === '#') {
 					pushComment();
 					return tokens;
-				} else if (code_line.substring(start, index + 1) in Separators) {
+				} else if (code_line.substring(start, index + 1) in Demarcators) {
 					push();
-					context = Prelexing.None;
+					context = Prelexing.Nothing;
 				} else {
 					pushAfterwards();
 					context = Prelexing.Anything;
@@ -162,14 +165,14 @@ export function pretokenizeLine(code_line: string): Tokens {
 			case Prelexing.SingleQuoteString:
 				if (char === '\'') {
 					push(LexicalCategory.RawString);
-					context = Prelexing.None;
+					context = Prelexing.Nothing;
 				}
 				break;
 
 			case Prelexing.DoubleQuoteString:
 				if (prev_char !== '\\' && char === '"') {
 					push(LexicalCategory.String);
-					context = Prelexing.None;
+					context = Prelexing.Nothing;
 				}
 				break;
 		}
@@ -181,3 +184,6 @@ export function pretokenizeLine(code_line: string): Tokens {
 
 	return tokens;
 }
+
+
+

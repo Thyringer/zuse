@@ -1,5 +1,5 @@
 
-import { CodeError, Phase, PhaseData } from "../CompileError.ts"
+import { CompileError, Phase, PhaseData } from "../CompileError.ts"
 import { ANSIColor, color, wrapText } from "../TUI.ts"
 
 import { LinearizedCode } from "./LinearizedCode.ts";

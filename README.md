@@ -259,7 +259,7 @@ Furthermore, pointers in Kalkyl serve the sole purpose of implementing data stru
 extend : (*Array t) t -> *Array t
 ```
 
-Instead of requiring a pointer or mutable reference, the function expects - simply expressed by an asterisk - that an array must be passed that no one else references. The compiler can provide this guarantee through simple code analysis at compile time, so that the function is able to manipulate such an array safely without destroying the referential transparency of the code, since that passed array is ultimately not used anywhere else. Internally, of course, a pointer is dereferenced to update the header and data of the array; but to the user of the `extend` function, `Array t` appears as a value that just has to be unique.
+Instead of requiring a pointer or mutable reference, the function expects – simply expressed by an asterisk – that an array must be passed that no one else references. The compiler can provide this guarantee through simple code analysis at compile time, so that the function is able to manipulate such an array safely without destroying the referential transparency of the code, since that passed array is ultimately not used anywhere else. Internally, of course, a pointer is dereferenced to update the header and data of the array; but to the user of the `extend` function, `Array t` appears as a value that just has to be unique.
 
 ### Functional Programming meets Memory Management
 

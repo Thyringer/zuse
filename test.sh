@@ -1,1 +1,1 @@
-deno test compiler/Lexer/Lexer.ts --allow-read --allow-import --watch
+deno test compiler/Precompiler/Lexer.ts --allow-read --allow-import --watch

@@ -66,8 +66,9 @@ export function linearize(
 			determineIndent();
 		}
 		else if (source_code[index] === "#") {
-			if (source_code[index + 1] === "#" && (index === line_beginning + offset ||
-			    index === line_beginning + offset + (level * indent))
+			if (source_code[index + 1] === "#" && (
+				index === line_beginning + offset ||
+				index === line_beginning + offset + (level * indent))
 			) {		
 				advanceToLineEnd();
 				pushLine();

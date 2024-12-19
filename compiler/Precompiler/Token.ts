@@ -1,28 +1,29 @@
 
 import { assertEquals, assertLess } from "@std/assert";
 
-import { color } from "../TUI.ts"
-import { Codepoint } from "./Codepoint.ts";
+import { bold, color, Style } from "../TUI.ts"
 
 
 //
 
 export class Token {
-	category: LexicalCategory | undefined;
+	category: LexicalCategory | null;
 	lexeme: ReservedSymbol | string | null;
 
 	/**
 	 * Creates a token that identifies and categorizes a lexeme in a Kalkyl code line.
-	 * @param category First rough categorization of the lexeme.
-	 * @param lexeme Either null when whitespace, or substring. For a reserved symbol, the string gets discarded after the token name is determined.
+	 * @param category Categorization of the lexeme.
+	 * @param lexeme Either null when whitespace, or substring. For a reserved symbol, the substring gets discarded after the token name is determined.
 	 * @param from Index that points to the beginning of the lexeme in the code string.
 	 * @param to Index where the lexeme ends – at least `from + 1`.
+	 * @param invalid Is the lexeme invalid?
 	 */
 	constructor(
-		category: LexicalCategory | undefined,
+		category: LexicalCategory | null,
 		lexeme: string | null,
 		public from: number,
-		public to: number
+		public to: number,
+		public invalid: boolean = false
 	) {
 		if (lexeme !== null) {
 			if (lexeme in Keywords) {
@@ -30,11 +31,7 @@ export class Token {
 				this.lexeme = Keywords[lexeme];
 				
 			}
-			else if (lexeme !== null && lexeme in Separators) {
-				this.category = LexicalCategory.Separator;
-				this.lexeme = PunctuationData[lexeme].name;
-			}
-			else if (lexeme !== null && lexeme in PunctuationData) {
+			else if (lexeme in PunctuationData) {
 				this.category = LexicalCategory.Punctuation;
 				this.lexeme = PunctuationData[lexeme].name;
 			}
@@ -50,8 +47,8 @@ export class Token {
 	}
 
 
-	get display_name(): string {
-		if (this.category === undefined) {
+	displayName(): string {
+		if (this.category === null) {
 			return "?";
 		}
 		else {
@@ -60,33 +57,44 @@ export class Token {
 	}
 
 
-	// deno-lint-ignore getter-return
-	get display_lexeme(): string {
+	displayLexeme(): string {
 		if (this.category === undefined) {
-			return color.String(this.lexeme);
+			return color.string(this.lexeme);
 		}
 		else {
 			switch (this.category) {
 				case LexicalCategory.Whitespace: {
 					return "null";
 				}
-				case LexicalCategory.Separator:
 				case LexicalCategory.Punctuation: {
-					const name = color.ReservedSymbol(Punctuation[this.lexeme as Punctuation]);
-					const lexeme = color.Comment(PunctuationLexemes[this.lexeme as Punctuation])
-					return `${name} ${lexeme}`;
+					if (typeof this.lexeme === "string") {
+						return color.error(this.lexeme);
+							// Highlight unknown/invalid punctuation.
+					}
+					else {
+						const name = color.reserved_symbol(Punctuation[this.lexeme as Punctuation]);
+						const lexeme = color.comment(PunctuationLexemes[this.lexeme as Punctuation])
+						return `${name} ${lexeme}`;
+					}
 				}
-
 				case LexicalCategory.Keyword: {
-					const name = color.ReservedSymbol(Keyword[this.lexeme as Keyword]);
-					const lexeme = color.Comment(KeywordLexemes[this.lexeme as Keyword])
+					const name = color.reserved_symbol(Keyword[this.lexeme as Keyword]);
+					const lexeme = color.comment(KeywordLexemes[this.lexeme as Keyword])
 					return `${name} ${lexeme}`;
 				}
 				default: {
-					return color.String(this.lexeme);
+					return this.invalid
+						? bold(color.string(this.lexeme, Style.Error))
+						: color.string(this.lexeme);
 				}
 			}
 		}
+	}
+
+
+	isName(): boolean {
+		return this.category === LexicalCategory.UncapitalizedName
+		    || this.category === LexicalCategory.CapitalizedName
 	}
 
 
@@ -97,12 +105,34 @@ export class Token {
 	}
 
 
-	isName(): boolean {
-		return this.category === LexicalCategory.UncapitalizedName
-		    || this.category === LexicalCategory.CapitalizedName
+	isInteger(): boolean {
+		return this.category === null ? false :
+			this.category >= LexicalCategory.Integer &&
+			this.category <= LexicalCategory.HexadecimalInteger
+	}
+
+
+	/** Is the category `LexicalCategory.Fraction`? */
+	isDecimalPlace(): boolean {
+		return this.category === LexicalCategory.Fraction;
+	}
+
+
+	/** Is the category `LexicalCategory.Fraction`? */
+	isRepeatingDecimal(): boolean {
+		return this.category === LexicalCategory.Repetend;
+	}
+	
+
+	isNumber(): boolean {
+		return this.category === null ? false :
+			this.category >= LexicalCategory.Integer &&
+			this.category <= LexicalCategory.Repetend
 	}
 }
 
+
+//
 
 export class Tokens extends Array<Token> {
 
@@ -116,29 +146,30 @@ export class Tokens extends Array<Token> {
 
 export enum LexicalCategory {
 	Whitespace = 0,
-	Separator,
-		// Whitespace and separators are just special punctuations, whose distinction in advance facilitates parsing.
 	Punctuation,
 	Keyword,
+
 	// NAME CASES
 	UncapitalizedName,
 	Label,
 	Predicate,
 	CapitalizedName,
+
 	// NUMBER LITERALS
 	Integer,
 	BinaryInteger,
 	HexadecimalInteger,
-	IntegerPart,
-	FractionalPart,
+	Fraction,
 	Repetend,
+		// A fractional part or repetend must always follow an integer part.
+
 	// STRING LITERALS
+	String,
+	RawString,
 	Binary,
 	Hex,
-	RawString,
-	String,
 	//
-	Documentation
+	Documentation,
 }
 
 
@@ -374,21 +405,21 @@ const KeywordLexemes: { [key in Keyword]: string } = Object.fromEntries(
 
 //
 
-type PunctuationData = { name: Punctuation, unambiguous: boolean, clinging: boolean }
+type PunctuationData = { name: Punctuation, unambiguous: boolean, demarcating: boolean }
 
 /**
  * Bundles all relevant data to significantly simplify tokenization through automation based on the information provided here.
  * @param name Symbol to be identified.
  * @param unambiguous Is the symbol unique, or is it part of other – longer – punctuations?
- * @param clinging Can the symbol be adjacent to other lexemes without any whitespace?
+ * @param demarcating Can the symbol be adjacent to other lexemes without any whitespace?
  * @returns 
  */
 function pd(
 	name: Punctuation,
 	unambiguous: boolean,
-	clinging: boolean
+	demarcating: boolean
 ): PunctuationData {
-	return { name: name, unambiguous: unambiguous, clinging: clinging };
+	return { name: name, unambiguous: unambiguous, demarcating: demarcating };
 }
 
 /** In Kalkyl, punctuation marks with more than two characters are deliberately avoided. Likewise, for the sake of simplicity, no distinction is made at the lexical level between operators and punctuations. */
@@ -449,6 +480,23 @@ export const PunctuationData: { [key: string]: PunctuationData } = {
 	 "%": pd(Punctuation.Percent, true, true)
 };
 
+
+export function isPunctuation(lexeme: string): boolean {
+	return lexeme in PunctuationData;
+}
+
+
+/** Is the punctuation mark a valid standalone lexeme (like brackets), regardless of whether other characters directly follow it? */
+export function isUnambiguous(punctuation: string) {
+	return PunctuationData[punctuation].unambiguous;
+}
+
+
+export function isDemarcating(punctuation: string) {
+	return PunctuationData[punctuation].demarcating;
+}
+
+
 /*
 function getPunctuation(symbol: Punctuation): string | null {
 	for (const [key, val] of Object.entries(PunctuationData)) {
@@ -470,14 +518,14 @@ export const PunctuationLexemes: { [key: number]: string } = Object.entries(Punc
 
 
 /** Automatically isolates all punctuation marks required by the prelexer, which, in addition to spaces, separate lexemes from each other. */
-export const Separators = Object.entries(PunctuationData)
-	.filter(([_, data]) => data.clinging)
+export const Demarcators = Object.entries(PunctuationData)
+	.filter(([_, data]) => data.demarcating)
 	.reduce((acc, [key, data]) => {
 		acc[key] = data.unambiguous;
 		return acc;
 	}, {} as { [key: string]: boolean });
 
-	
+
 //
 
 Deno.test({

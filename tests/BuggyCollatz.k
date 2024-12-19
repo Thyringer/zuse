@@ -13,6 +13,7 @@ collatz+ n = if
     		Num.Nat::(n &mod 2 == 0) # type error because specification expects a generic implementation
     		##   This is useless documentation.
 x = --collatz b"123456789" # invalid literal for several reasons
-y = X'1234567890ABCDEF'
+y = C'1234567890ABCDEF'
 	:: <bla>
 	program = x # type error because program is of type `*IO -> *IO` and not `i where Integer ...`
+

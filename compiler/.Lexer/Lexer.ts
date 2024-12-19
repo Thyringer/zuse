@@ -5,7 +5,7 @@ import { CharType, Codepoint } from "./Codepoint.ts"
 import { FaultyCode } from "./FaultyCode.ts";
 import { linearize } from "./Linearizer.ts";
 import { LinearizedCode } from "./LinearizedCode.ts";
-import { pretokenizeLine } from "./Prelexer.ts";
+import { tokenizeLine } from "./Prelexer.ts";
 import { LexicalCategory, Token } from "./Token.ts"
 import { TokenizedCode } from "./TokenizedCode.ts";
 
@@ -23,10 +23,10 @@ export function tokenize(lines: LinearizedCode): TokenizedCode | FaultyCode {
 	let chartype: CharType | undefined;
 
 	for (const line of lines) {
-		line.tokens = pretokenizeLine(line.code);
+		line.tokens = tokenizeLine(line.code);
 			// The prelexer has already done the decomposition into lexemes, so that only the categorization needs to be completed and lexical checks carried out.
 
-		for (const [token_index, token] of line.tokens!.entries()) {
+		for (const token of line.tokens) {
 
 			if (token.category === undefined) {
 				prev_chartype = undefined;
@@ -34,6 +34,14 @@ export function tokenize(lines: LinearizedCode): TokenizedCode | FaultyCode {
 				for(let index = token.from; index < token.to; index++) {
 					codepoint = new Codepoint(line.code[index]);
 					chartype = codepoint.presort();
+
+					/*
+					console.log(`index = ${index}`);
+					console.log(`token.to = ${token.to}`);
+					console.log(`length = ${line.code.length}`);
+					console.log(`char = ${line.code[index]}`);
+					console.log(`chartype = ${chartype}`);
+					*/
 
 					if (prev_chartype === undefined) {
 						switch(chartype) {
@@ -84,13 +92,6 @@ export function tokenize(lines: LinearizedCode): TokenizedCode | FaultyCode {
 										break;
 									}
 									case CharType.Other: {
-										/*
-										console.log(`index = ${index}`);
-										console.log(`token.to = ${token.to}`);
-										console.log(`length = ${line.code.length}`);
-										console.log(`char = ${line.code[index]}`);
-										console.log(`chartype = ${chartype}`);
-										*/
 										errors.pushSyntaxError(14, line, index);
 										break
 									}
@@ -160,36 +161,6 @@ export function tokenize(lines: LinearizedCode): TokenizedCode | FaultyCode {
 								}
 								break;
 							}
-							case LexicalCategory.RawString: {
-								if (prev_token !== undefined ) {
-									switch (prev_token.category) {
-										case LexicalCategory.Whitespace:
-										case LexicalCategory.Separator: {
-											break;
-										}
-										case LexicalCategory.UncapitalizedName:
-										// deno-lint-ignore no-fallthrough
-										case LexicalCategory.CapitalizedName: {
-											const lexeme = prev_token.lexeme as string
-											if ((lexeme).length === 1) {
-												const codepoint = new Codepoint(lexeme);
-												if (codepoint.isBinPrefix()) {
-													token.category = LexicalCategory.Binary;
-													break;
-												}
-												else if (codepoint.isHexPrefix()) {
-													token.category = LexicalCategory.Hex;
-													break;
-												}
-											}
-										}
-										default: {
-											errors.pushSyntaxError(20, line, prev_token.to - 1, token.from + 1)
-											break;
-										}
-									}
-								}
-							}
 						}
 					}
 					
@@ -206,7 +177,7 @@ export function tokenize(lines: LinearizedCode): TokenizedCode | FaultyCode {
 	}
 
 	//console.log(new TokenizedCode(lines).displayLines());
-	//console.log(new TokenizedCode(lines).displayTokens());
+	console.log(new TokenizedCode(lines).displayTokens());
 
 	return errors.length === 0 ? new TokenizedCode(lines) : new FaultyCode(lines, errors);
 }
@@ -215,7 +186,7 @@ export function tokenize(lines: LinearizedCode): TokenizedCode | FaultyCode {
 //
 
 Deno.test("Lexer", async () => {
-	const file_path = "./tests/Collatz.k";
+	const file_path = "./tests/BuggyCollatz.k";
 	const source_code = await Deno.readTextFile(file_path);
 	
 	let start;
@@ -223,12 +194,12 @@ Deno.test("Lexer", async () => {
 
 	console.log("Measuring performance...");
 	start = performance.now();
-	const lines = linearize(source_code, ["Collatz"], Tab);
+	const lines = linearize(source_code, ["BuggyCollatz"], Tab);
 	const output = tokenize(lines);
 
 	if (output instanceof TokenizedCode) {
 		console.log(`\n${output.displayTokens(85)}`);
-		console.log(`\n${output.displayLines(82)}`);
+		//console.log(`\n${output.displayLines(82)}`);
 	}
 	else {
 		console.log(`\n${output.display}\n`);

@@ -9,12 +9,12 @@ export function require(condition: unknown, message: string): asserts condition 
 
 
 /** Always excludes `undefined` and should thus only be used if the program logic actually requires this condition. */
-export function defined<T>(value: T | undefined): T {
-	if (value !== undefined) {
+export function defined<T>(value: T | undefined | null): T {
+	if (value != null) {
 		return value;
 	}
 	else {
-		throw new Error(`value is undefined`);
+		throw new Error(`value is undefined/null`);
 	}
 }
 
@@ -31,18 +31,10 @@ export function nonempty<T extends { length: number }>(value: T): T {
 
 //
 
-const Kind = Symbol('kind')
-
-
-export type integer = number & { readonly [Kind]: 'integer' };
-
-export function Integer(value: number): integer {
-	return Number.isInteger(value) ? (value as integer) : NaN as integer;
-}
-
+export type integer = number;
 
 /** Guarantees an integer number both statically and at runtime. */
-export function requireInteger(value: number): number {
+export function requireInteger(value: number): integer {
 	if (Number.isInteger(value)) {
 		return value;
 	}
@@ -52,15 +44,15 @@ export function requireInteger(value: number): number {
 }
 
 
-export type positive<T extends number> = T & { readonly [Kind]: "positive" };
-
-export function Positive<T extends number>(value: T): positive<T> {
-	return value > 0 ? (value as positive<T>) : NaN as positive<T>;
+export function Integer(value: number): integer {
+	return Number.isInteger(value) ? (value as integer) : NaN as integer;
 }
 
 
+export type positive_integer = number;
+
 /** Guarantees a positive integer number both statically and at runtime. */
-export function requirePositiveInteger(value: number): number {
+export function requirePositiveInteger(value: number): positive_integer {
 	if (Number.isInteger(value) && value > 0) {
 		return value;
 	}
@@ -70,15 +62,10 @@ export function requirePositiveInteger(value: number): number {
 }
 
 
-export type natural = number & { readonly [Kind]: 'natural' };
-
-export function Natural(value: number): natural {
-	return Number.isInteger(value) && value >= 0 ? (value as natural) : (NaN as natural);
-}
-
+export type natural_number = number;
 
 /** Guarantees a natural number both statically and at runtime. */
-export function requireNatural(value: number): number {
+export function requireNaturalNumber(value: number): natural_number {
 	if (Number.isInteger(value) && value >= 0) {
 		return value;
 	}
@@ -105,10 +92,10 @@ export function between<T, Min extends T, Max extends T>(value: T, min: Min, max
 }
 
 
-export type char = string & { readonly [Kind]: 'char' };
+export type char = string;
 
 /** Guarantees a single character. If the input string has more characters, only the first one is returned. Empty strings result in an error. */
-export function requireChar(value: string): string {
+export function requireChar(value: string): char {
 	if (value.length >= 1) {
 		return value[0];
 	}
