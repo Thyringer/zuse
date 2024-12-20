@@ -58,7 +58,7 @@ This section provides a quick overview of Kalkyl's concepts and appearance. A de
 
 ### Program Structure
 
-Each Kalkyl program is composed of one or more components, which are reflected at directory level as source files and can also be called translation units:
+Each Kalkyl program is composed of one or more components, which are reflected at directory level as source files and can also be called translation or compilation units:
 
 ```nim
 component Geometry provides
@@ -120,14 +120,14 @@ If only one data constructor is required, which should be named the same as the 
 type Even is {i : Int | i &mod 2 = 0}
 ```
 
-In fact, all data constructors, unless defined manually, return their parameters as tuples:
+In fact, all data constructors return their arguments together as a single tuple:
 
 ```nim
 rec = Rectangle 12.3 45.6
 a = rec.1 # a → 45.6
 ```
 
-Furthermore, data constructors are possible that describe tuples with field names (record):
+Furthermore, data constructors are possible that describe a tuple with field names (record):
 
 ```nim
 type MailingAddress t has MailingAddress
@@ -139,6 +139,7 @@ type MailingAddress t has MailingAddress
 a = MailingAddress "123 Main St" "Springfield" "12345" US
 # or with some labeled arguments:
 b = MailingAddress "Max-Mustermann-Ring 12b" -country DE -zipcode "0123" -city "Leipzig"
+c = b.country # c = DE
 ```
 
 If arguments are specified by name, the order does not matter.
@@ -169,7 +170,7 @@ The slash `/` simply separates an alternative shorter name, which is preferred a
 
 Lowercase names that begin with a hyphen will be treated as "labels" that can be used to name types and values, as already shown in the previous examples. The hyphen was chosen to avoid an inflated use of `:` or `=` and to enable neat syntax, which is a bit reminiscent of CLI program parameters.
 
-This of course has the consequence that spaces are ALWAYS required between the binary operators `+` and `-`, which, however, can hardly be seen as a disadvantage, but rather as imposed proper code style. The only real disadvantage is the impossibility of using the minus sign as a unary prefix operator, but let's be honest: how often do you need that? Here, a negation function can serve the same purpose, or the following idiom: `-1*x`, which is possible since `*` and `/` are among the few punctuation characters that do not necessarily require whitespace for their operands.
+This of course has the consequence that spaces are ALWAYS required between the binary operators `+` and `-`, which, however, can hardly be seen as a disadvantage, but rather as imposed proper code style. The only real disadvantage is the impossibility of using the minus sign as a unary prefix operator, but let's be honest: How often do you need that? Here, a negation function can serve the same purpose, or the following idiom: `-1*x`, which is possible since `*` and `/` are among the few operators that do not necessarily require whitespace for their operands.
 
 
 ### Modularity despite Ad hoc Polymorphism
@@ -203,13 +204,39 @@ slang = module Displayable Bool has
 x = display True using slang # x → "Yo"
 ```
 
-Implementations of concepts are first-class citizens in Kalkyl, so they can be defined like ordinary values ​​and processed by functions but also installed with `using` for a specific definition or with "install" for an entire component. Alternatively, a module is directly usable without prior installation:
+Implementations of concepts are first-class citizens in Kalkyl, so they can be defined like ordinary values ​​and processed by functions but also installed with `using` for a specific definition or with `install` for an entire component:
+
+```nim
+install slang
+```
+
+Alternatively, a module is directly usable without prior installation:
 
 ```nim
 x = slang.display True
 ```
 
-This flexible interchangeability is ultimately the reason why implementations of concepts are called modules.
+or instead resolved under namespaces:
+
+```nim
+use slang unter Alternatives.Slang
+
+x = Alternatives.Slang.display True
+```
+
+Furthermore, parameterizations are also possible to create so-called module templates:
+
+```nim
+slang true~"Yo" false~"Nope" = module Displayable Bool has
+    display True = true : {"Yo", "Yup", "Yeah", "Yes"}
+    display False = false : {"Nope", "Nah", "No"}
+
+use slang -false "Nah" under Weird
+
+x = Weird.display False # x → "Nah"
+```
+
+This flexible interchangeability and applicability is ultimately the reason why implementations of concepts are called modules.
 
 Components themselves can be specified by a concept as well, but this only serves the purpose of defining plugins for an existing application:
 
@@ -219,15 +246,54 @@ component KalkylSyntax : ExampleTextEditor.SyntaxHighlighting
 use ExampleTextEditor
 ```
 
+### Functional Programming meets Memory Management
+
+In Kalkyl, the programmer has free rein in memory management – if he wants. But unlike in C, the full power of a modern type system is at work in the background, supported by proven concepts from the field of functional programming, which help the programmer to commit significantly fewer memory errors:
+
+```nim
+component Memory provides
+    (^_), Runtime, Size, Allocating, Releasing, Reallocating, init, copy
+
+alias Nat+ is {n : Nat | n > 0}
+
+(^_) : Type + Nat+ -> Type
+
+## Can only be implemented automatically at runtime and contains the heap state for initial uniqueness.
+concept Runtime
+
+concept Allocating t | options given t <=> options has
+    malloc : options -> ^t where Runtime
+
+concept Releasing t where Allocating t has
+    free : ^t -> ()
+
+concept Reallocating a options | b where
+    Allocating {a, b}, Releasing {a, b} # or: Allocating a, Allocating b, …
+has
+    remalloc : ^a options -> ^b where Runtime
+
+## Guarantees that always initialized memory is allocated.
+init : t~$default -> ^t where Default t, Allocating t, Runtime 
+
+## If `-n` is `None`, the entire object gets copied, otherwise only n-bytes from source to destination.
+copy : -dest ^t -src ^t -n ?Nat -> -dest ^t -src ^t
+
+init : t -> ^t where Allocating t, Runtime
+```
+
+The conception of memory management functions makes it very easy to offer OS-specific implementations for them, or to replace existing implementations with customized ones.
+
+The constraint `Runtime` ensures that the compiler does not consider allocating functions to be statically applicable, but rather postpones the evaluation of expressions calling them to runtime. In this sense, `Runtime` can be thought of as an implicit parameter for an unique argument that gets automatically passed when the program starts, thus maintaining the referential transparency; since `Runtime` reflects the real fact at code level that the heap state is actually only known at runtime.
+
 ### High-performance Data Structures in Kalkyl itself
 
 Tuples form the basis for defining more complex data structures:
 
 ```nim
-type Node t is (-data t, -next ^Node ~ Null)
-    # The tilde is a type operator to assign a value ​​as default to a type: (~) : {t : Type} t -> {t}.
+type Node t is -data t, -next ^Node ~ Null
+    # The tilde is a type operator to assign a value as default to a type: (~) : {t : Type} t -> {t}.
 
-extend : (^Node t) t -> Sub (^Node t)
+extend : (^Node t) t -> ^Node t where Runtime
 extend node data = do
     if node /= Null then
         # Copy memory address from `node` to `current` and borrow all rights until `node` is reused:
@@ -236,40 +302,50 @@ extend node data = do
         current^.next := init (Node data)
         last := current^.next
         # Once `node` is used, `current` is no longer available as it may still be the original pointer:
-        Subpointer node last
+        node
     else
-        Subpointer (init Node data) Null
+        Null
 ```
 
-The type constructor `Sub` simply represents a tuple, where the second pointer – the "subpointer" – is only accessible through the first pointer – the "main pointer". For reasons of simplicity, no direct distinction is made between these at the type level, but only semantically in the context, since main pointers reside exclusively on the stack and subpointers only exist as part of a dynamic data structure in the heap, which has certain consequences: subpointers behave in an affine manner in contrast to main pointers, which basically always have to be consumed or returned.
-
-```nim
-type Sub a b~a has Subpointer -main ^a -sub ^b # (Sub) : {t} Type~t -> Type
-```
-
-Kalkyl gives the programmer direct access to imperative language constructs to define the most efficient data structure, while the compiler can exclude memory errors from the ground up thanks to its advanced type system and clear rules. The remaining errors related to pointers that are undetectable at compile time get intercepted by smart pointers, which can nevertheless be optimized away for a specific compilation unit – also called components in Kalkyl. The idea is that for test versions and general applications where 100% performance is not crucial, errors get noticed and recorded at runtime.
+Kalkyl gives the programmer direct access to imperative language constructs to define the most efficient data structure, while the compiler can exclude memory errors from the ground up thanks to its advanced type system exerting substructural logic. The remaining errors related to pointers that are undetectable at compile time get intercepted by smart pointers, which can nevertheless be optimized away for a specific compilation unit (also called components in Kalkyl). The idea is that for test versions and general applications where 100% performance is not crucial, memory related errors get noticed or recorded at runtime.
 
 ### Simple Rules enable Efficiency despite Abstraction
 
 In contrast to Rust, Kalkyl does not differentiate between "safe" and "unsafe", but basically only allows safe code, whose safety guarantees at runtime can be opted out using respective compilation settings, which is particularly appropriate for proven implementations.
 
-Furthermore, pointers in Kalkyl serve the sole purpose of implementing data structures, but are not intended for everyday use. The programmer only sees ordinary (free) or unique types:
+Furthermore, pointers in Kalkyl serve the sole purpose of implementing data structures, but are not intended for everyday use. The programmer primarily sees ordinary (free) or unique types:
 
 ```nim
 extend : (*Array t) t -> *Array t
 ```
 
-Instead of requiring a pointer or mutable reference, the function expects – simply expressed by an asterisk – that an array must be passed that no one else references. The compiler can provide this guarantee through simple code analysis at compile time, so that the function is able to manipulate such an array safely without destroying the referential transparency of the code, since that passed array is ultimately not used anywhere else. Internally, of course, a pointer is dereferenced to update the header and data of the array; but to the user of the `extend` function, `Array t` appears as a value that just has to be unique.
+Instead of requiring a pointer or mutable reference, the function expects – simply expressed by an asterisk – that an array must be passed that no one else references. The compiler can provide this guarantee through simple code analysis at compile time, so that this function is able to manipulate such an array safely without destroying the referential transparency of the code, since that passed array is ultimately not used anywhere else. Internally, of course, a pointer is dereferenced to update the header and data of the array; but to the user of the `extend` function, `Array t` appears as a value that just has to be unique.
 
-### Functional Programming meets Memory Management
+This abstraction is available if there are specific implementations of the respective memory concepts. Functions such as `extend`, which actually expect pointers `(^Array t) t -> ^Array t`, get then automatically abstracted, made possible by the fact that pointers are equally unique and, thanks to type-specific implementations of `free`, no longer have to be used in a strictly linear manner, i.e. exactly once:
 
-The function `init` allocates dynamic memory and returns a pointer to it:
+<div align="center">
+    <img src="assets/substructural type system.svg" alt="Overview of Kalkyl's substructural type system" width="400">
+</div>
+
+Pointer types are also referred to as persistent types in the specification because they are unique and cannot be discarded, but must be used exactly once. However, if there is a pre-installed specific implementation for the concepts of `Allocating` and `Releasing`, objects can be created using `new` without ever coming into contact with pointers:
 
 ```nim
-init : t -> ^t where Allocating t, Runtime
+# new : options -> *t where Allocating t options, Runtime
+init-array x = Array::new x
 ```
 
-The constraint `Runtime` ensures that the compiler does not consider this function to be statically applicable, but rather postpones the evaluation of such an expression as a whole to runtime. In this sense, `Runtime` can be thought of as an implicit parameter for an unique argument that gets automatically passed when the program starts, thus maintaining the referential transparency; since `Runtime` reflects the real fact at code level that the heap state is actually only known at runtime.
+If such a dynamically created object is not returned, the compiler automatically inserts calling  `free`, which allows the object referenced by a pointer to behave like a mere unique value and thus eliminates the need for manual dereferencing, releasing and the like.
+
+ 
+
+Incidentally, no further specification is required if the return type is already known from the context, thanks to type inference:
+
+ 
+
+```nim
+init-array : t.. -> *Array t where Runtime
+init-array x = new x
+```
 
 ## Note on development and specification
 
